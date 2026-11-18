@@ -1,26 +1,41 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* Class-based dark mode toggle ekak use karanawa nam me line eka thiyanna */
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  /* NovaStack Teal / Cyan Brand Palette */
+  --color-nova-50: #F0FAFB;
+  --color-nova-100: #D9F2F5;
+  --color-nova-200: #B5E5EC;
+  --color-nova-300: #82D1DD;
+  --color-nova-400: #47B5C6;
+  --color-nova-500: #2BA6B8; /* Logo Light Teal (Accents / Badges) */
+  --color-nova-600: #1E8A9E; /* Logo Main Teal (Primary Buttons / Active Tabs) */
+  --color-nova-700: #197082; /* Hover State */
+  --color-nova-800: #155B6B;
+  --color-nova-900: #154C59;
+  --color-nova-950: #08313B;
+
+  /* NovaStack Dark Slate Neutrals */
+  --color-slate-dark-800: #2B353C; /* Logo Text Color */
+  --color-slate-dark-900: #1D2429; /* Dark Mode Card BG */
+  --color-slate-dark-950: #12171A; /* Dark Mode Main BG */
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
   }
-}
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  html,
+  body,
+  #root,
+  .app {
+    height: 100%;
+    width: 100%;
+    @apply text-sm bg-slate-50 text-slate-dark-800 dark:bg-slate-dark-950 dark:text-slate-100;
+  }
 }
