@@ -18,6 +18,15 @@ export type Priority = (typeof PRIORITIES)[number];
 
 export type Role = "admin" | "developer" | "viewer";
 
+export type TaskComment = {
+  id: string;
+  authorId: string;
+  authorName: string;
+  authorRole: Role;
+  content: string;
+  createdAt: string;
+};
+
 export type User = {
   id: string;
   username: string;

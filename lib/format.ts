@@ -1,4 +1,35 @@
 import { format, isValid, parseISO } from "date-fns";
+import type { TaskComment } from "./types";
+
+export function parseTaskData(rawDescription: string): {
+  description: string;
+  comments: TaskComment[];
+} {
+  if (!rawDescription) return { description: "", comments: [] };
+  const trimmed = rawDescription.trim();
+  if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      if ("body" in parsed || "comments" in parsed) {
+        return {
+          description: typeof parsed.body === "string" ? parsed.body : "",
+          comments: Array.isArray(parsed.comments) ? parsed.comments : [],
+        };
+      }
+    } catch {}
+  }
+  return { description: rawDescription, comments: [] };
+}
+
+export function serializeTaskData(description: string, comments: TaskComment[]): string {
+  if (!comments || comments.length === 0) {
+    return description;
+  }
+  return JSON.stringify({
+    body: description,
+    comments,
+  });
+}
 
 export function formatDate(value?: string) {
   if (!value) return "—";

@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { usePathname } from "next/navigation";
 import Navbar from "./components/Navbar";
 import Sidebar from "./components/Sidebar";
-import LoginScreen from "./components/LoginScreen";
+import WorkspaceLogin from "./components/WorkspaceLogin";
 import { useAppDispatch, useAppSelector } from "@/app/redux";
 import { setIsSidebarCollapsed } from "@/state";
 import { useGetAuthUserQuery, useGetBackendStatusQuery } from "@/state/api";
@@ -23,6 +23,11 @@ const DashboardWrapper = ({ children }: { children: React.ReactNode }) => {
   const { data: auth, isLoading: authLoading, refetch: refetchAuth } = useGetAuthUserQuery({});
   const [copied, setCopied] = useState(false);
   const [checking, setChecking] = useState(false);
+
+  // If on /landing, render the standalone Landing Page directly without workspace chrome!
+  if (pathname === "/landing") {
+    return <>{children}</>;
+  }
 
   const handleRefresh = async () => {
     setChecking(true);
@@ -44,21 +49,21 @@ const DashboardWrapper = ({ children }: { children: React.ReactNode }) => {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-slate-50 text-sm text-slate-500 dark:bg-slate-dark-950 dark:text-slate-400 gap-3">
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-nova-600 border-t-transparent" />
-        <p>Connecting to Supabase...</p>
+        <p>Connecting to NovaBoard Workspace...</p>
       </div>
     );
   }
 
-  // If on /landing or not signed in, show the Landing Page & Login Portal
-  if (pathname === "/landing" || (configured && auth && !auth.signedIn)) {
-    return <LoginScreen />;
+  // If not signed in, show clean, focused Workspace Login Portal (NOT the landing page)
+  if (configured && auth && !auth.signedIn) {
+    return <WorkspaceLogin />;
   }
 
   // If signed in, but database tables haven't been created yet
   if (configured && status && !status.ok) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-8 dark:bg-slate-dark-950">
-        <div className="max-w-xl w-full rounded-2xl border border-slate-200 bg-white p-7 text-sm dark:border-slate-800 dark:bg-slate-dark-900 shadow-xl">
+        <div className="max-w-xl w-full rounded-2xl border border-slate-200 bg-white p-7 text-sm dark:border-slate-800 dark:bg-slate-900 shadow-xl">
           <div className="flex items-center gap-3 mb-4">
             <div className="rounded-xl bg-nova-50 p-2.5 text-nova-600 dark:bg-nova-950 dark:text-nova-400">
               <Database className="h-6 w-6" />
@@ -78,33 +83,6 @@ const DashboardWrapper = ({ children }: { children: React.ReactNode }) => {
             <p className="leading-relaxed">
               The database tables (<code>users</code>, <code>teams</code>, <code>projects</code>, <code>tasks</code>) and admin triggers have not been executed in your Supabase SQL editor yet.
             </p>
-          </div>
-
-          <div className="space-y-3 mb-6 text-xs text-slate-600 dark:text-slate-300">
-            <p className="font-semibold text-slate-800 dark:text-slate-200">
-              3 Quick Steps to Complete Setup:
-            </p>
-            <ol className="list-decimal list-inside space-y-2 pl-1 leading-relaxed">
-              <li>
-                Click <strong>Copy SQL Code</strong> below.
-              </li>
-              <li>
-                Open{" "}
-                <a
-                  href="https://supabase.com/dashboard/project/mnucdpuwmzszpfmhjdcn/sql/new"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-nova-600 underline font-semibold inline-flex items-center gap-1"
-                >
-                  Supabase SQL Editor
-                  <ExternalLink className="h-3 w-3 inline" />
-                </a>
-                , paste the SQL script, and click <strong>Run</strong>.
-              </li>
-              <li>
-                Click <strong>Check Connection</strong> below once executed!
-              </li>
-            </ol>
           </div>
 
           <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-slate-100 dark:border-slate-800">
