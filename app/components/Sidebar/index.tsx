@@ -39,7 +39,12 @@ const Sidebar = () => {
   const { data: currentUser } = useGetAuthUserQuery({});
   const isAdmin = useIsAdmin();
   const username = currentUser?.userDetails?.username || "NovaStack";
-  const roleLabel = currentUser?.userDetails?.role === "admin" ? "Admin" : "View only";
+  const roleLabel =
+    currentUser?.userDetails?.role === "admin"
+      ? "Admin"
+      : currentUser?.userDetails?.role === "developer"
+        ? "Developer"
+        : "View only";
 
   const sidebarClassNames = `fixed flex h-full flex-col justify-between overflow-y-auto border-r border-slate-200 bg-white shadow-sm transition-all duration-300 z-40 dark:border-slate-800 dark:bg-slate-dark-900 ${
     isSidebarCollapsed ? "w-0 border-transparent" : "w-64"

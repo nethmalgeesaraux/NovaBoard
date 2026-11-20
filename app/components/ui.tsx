@@ -180,13 +180,21 @@ export function QueryError({ message }: { message?: string }) {
 
 export function DemoBanner() {
   const { data } = useGetBackendStatusQuery();
-  if (!data || data.mode !== "demo") return null;
+  if (!data || data.ok) return null;
 
   return (
-    <div className="mb-4 rounded-xl border border-nova-200 bg-nova-50 px-4 py-3 text-sm text-nova-900 dark:border-nova-800 dark:bg-nova-950 dark:text-nova-100">
-      Demo mode. Issues stay in this browser until you add the Supabase URL and anon key
-      to <span className="font-semibold"> .env.local</span> and run{" "}
-      <span className="font-semibold">supabase/schema.sql</span>.
+    <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-100 flex items-center justify-between gap-3">
+      <div>
+        <span className="font-semibold">Supabase Setup Notice:</span> {data.message}
+      </div>
+      <a
+        href="https://supabase.com/dashboard"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="shrink-0 rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700"
+      >
+        Open Supabase
+      </a>
     </div>
   );
 }

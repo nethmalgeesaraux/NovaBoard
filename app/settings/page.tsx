@@ -2,65 +2,121 @@
 
 import { useAppDispatch, useAppSelector } from "@/app/redux";
 import { setIsDarkMode } from "@/state";
-import { useGetBackendStatusQuery, useResetDemoDataMutation } from "@/state/api";
+import { useGetAuthUserQuery, useGetBackendStatusQuery, useSignOutMutation } from "@/state/api";
 import { getErrorMessage } from "@/lib/format";
-import { PageHeader, QueryError, cardClass, secondaryButton } from "@/app/components/ui";
+import { PageHeader, QueryError, cardClass, secondaryButton, dangerButton } from "@/app/components/ui";
+import { CheckCircle2, Database, ExternalLink, Moon, Shield, Sun, User } from "lucide-react";
 
 export default function SettingsPage() {
   const dispatch = useAppDispatch();
   const isDarkMode = useAppSelector((state) => state.global.isDarkMode);
   const { data: status, isError, error, refetch } = useGetBackendStatusQuery();
-  const [resetDemo, { isLoading }] = useResetDemoDataMutation();
+  const { data: currentUser } = useGetAuthUserQuery({});
+  const [signOut, { isLoading: signingOut }] = useSignOutMutation();
+
+  const user = currentUser?.userDetails;
 
   return (
-    <div>
+    <div className="space-y-6">
       <PageHeader
         eyebrow="Workspace"
         title="Settings"
-        subtitle="NovaBoard keeps appearance on this device. Project data goes to Supabase once the keys are set."
+        subtitle="Manage appearance, view database connectivity, and review your NovaStack Studio profile."
       />
       <QueryError message={isError ? getErrorMessage(error) : undefined} />
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <section className={`${cardClass} p-5`}>
-          <h2 className="font-semibold">Appearance</h2>
-          <p className="mt-1 text-sm text-slate-500">Uses the NovaStack palette from the global stylesheet.</p>
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* User Profile Card */}
+        <section className={`${cardClass} p-5 space-y-4`}>
+          <div className="flex items-center gap-2">
+            <User className="h-5 w-5 text-nova-600" />
+            <h2 className="font-semibold text-base">Your Profile</h2>
+          </div>
+          <div className="rounded-xl bg-slate-50 p-4 dark:bg-slate-800/60 text-xs space-y-2">
+            <div className="flex justify-between items-center">
+              <span className="text-slate-500">Name</span>
+              <span className="font-semibold text-slate-800 dark:text-slate-200">
+                {user?.username || "—"}
+              </span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-slate-500">Email</span>
+              <span className="font-mono text-slate-800 dark:text-slate-200">{user?.email || "—"}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-slate-500">Role</span>
+              <span className="inline-flex items-center gap-1 rounded-full bg-nova-50 px-2 py-0.5 font-semibold text-nova-700 dark:bg-nova-950 dark:text-nova-300 capitalize">
+                <Shield className="h-3 w-3" />
+                {user?.role || "developer"}
+              </span>
+            </div>
+          </div>
           <button
-            className={`${secondaryButton} mt-4`}
+            className={`${dangerButton} w-full`}
             type="button"
-            onClick={() => dispatch(setIsDarkMode(!isDarkMode))}
+            disabled={signingOut}
+            onClick={() => signOut()}
           >
-            {isDarkMode ? "Use light mode" : "Use dark mode"}
+            {signingOut ? "Signing out..." : "Sign Out of NovaBoard"}
           </button>
         </section>
 
-        <section className={`${cardClass} p-5`}>
-          <h2 className="font-semibold">Database</h2>
-          <p className="mt-2 text-sm">
-            Mode: <span className="font-semibold">{status?.mode ?? "checking"}</span>
-          </p>
-          <p className={`mt-2 text-sm ${status?.ok ? "text-emerald-700 dark:text-emerald-300" : "text-rose-600"}`}>
-            {status?.message}
-          </p>
-          <p className="mt-4 text-sm text-slate-600 dark:text-slate-300">
-            Sign in to see the live workspace. Admins can add projects, people, and issues.
-            Other accounts can view them.
-          </p>
-          <div className="mt-4 flex flex-wrap gap-2">
-            <button className={secondaryButton} type="button" onClick={() => refetch()}>
-              Check connection
-            </button>
-            {status?.mode === "demo" && (
-              <button
-                className={secondaryButton}
-                type="button"
-                disabled={isLoading}
-                onClick={() => resetDemo()}
-              >
-                Reset demo data
-              </button>
-            )}
+        {/* Database Connectivity */}
+        <section className={`${cardClass} p-5 space-y-4`}>
+          <div className="flex items-center gap-2">
+            <Database className="h-5 w-5 text-nova-600" />
+            <h2 className="font-semibold text-base">Supabase Database</h2>
           </div>
+
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs dark:border-slate-800 dark:bg-slate-800/60 space-y-2">
+            <div className="flex justify-between items-center">
+              <span className="text-slate-500">Backend</span>
+              <span className="font-semibold">Live Supabase PostgreSQL</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-slate-500">Status</span>
+              <span
+                className={`font-semibold inline-flex items-center gap-1 ${
+                  status?.ok ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600"
+                }`}
+              >
+                {status?.ok && <CheckCircle2 className="h-3.5 w-3.5" />}
+                {status?.ok ? "Connected & Synchronized" : "Tables Missing / Attention Required"}
+              </span>
+            </div>
+            <p className="pt-1 text-[11px] text-slate-500 leading-relaxed">{status?.message}</p>
+          </div>
+
+          <div className="flex flex-wrap gap-2 pt-1">
+            <button className={secondaryButton} type="button" onClick={() => refetch()}>
+              Check Connection
+            </button>
+            <a
+              href="https://supabase.com/dashboard/project/mnucdpuwmzszpfmhjdcn"
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`${secondaryButton} inline-flex items-center gap-1.5`}
+            >
+              <span>Open Supabase Dashboard</span>
+              <ExternalLink className="h-3.5 w-3.5" />
+            </a>
+          </div>
+        </section>
+
+        {/* Appearance Card */}
+        <section className={`${cardClass} p-5 space-y-3`}>
+          <h2 className="font-semibold text-base">Appearance</h2>
+          <p className="text-xs text-slate-500">
+            Switch between light and dark themes for your NovaBoard session.
+          </p>
+          <button
+            className={`${secondaryButton} mt-2 inline-flex items-center gap-2`}
+            type="button"
+            onClick={() => dispatch(setIsDarkMode(!isDarkMode))}
+          >
+            {isDarkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            <span>{isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}</span>
+          </button>
         </section>
       </div>
     </div>

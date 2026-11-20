@@ -18,7 +18,7 @@ import { PageHeader, QueryError, dangerButton, inputClass, secondaryButton } fro
 import BoardView from "@/app/components/tasks/BoardView";
 import ListView from "@/app/components/tasks/ListView";
 import TaskModal from "@/app/components/tasks/TaskModal";
-import { useIsAdmin } from "@/app/use-admin";
+import { useCanEdit, useIsAdmin } from "@/app/use-admin";
 
 export default function ProjectScreen() {
   const params = useParams<{ id: string }>();
@@ -39,6 +39,7 @@ export default function ProjectScreen() {
   const [deleteTask] = useDeleteTaskMutation();
   const [deleteProject] = useDeleteProjectMutation();
   const isAdmin = useIsAdmin();
+  const canEdit = useCanEdit();
 
   const taskId = searchParams.get("task");
   const editing = tasks.find((task) => task.id === taskId) ?? null;
@@ -85,7 +86,7 @@ export default function ProjectScreen() {
             <button className={secondaryButton} type="button" onClick={() => setView(view === "board" ? "list" : "board")}>
               {view === "board" ? "List" : "Board"}
             </button>
-            {isAdmin && (
+            {canEdit && (
               <button className="rounded-lg bg-nova-600 px-3 py-2 text-sm font-semibold text-white hover:bg-nova-700" type="button" onClick={() => setCreating(true)}>
                 New issue
               </button>
@@ -116,9 +117,9 @@ export default function ProjectScreen() {
       </div>
 
       {view === "board" ? (
-        <BoardView tasks={visible} users={users} onOpen={openTask} onMove={moveTask} canDrag={isAdmin} />
+        <BoardView tasks={visible} users={users} onOpen={openTask} onMove={moveTask} canDrag={canEdit} />
       ) : (
-        <ListView tasks={visible} users={users} onOpen={openTask} onStatus={moveTask} canEdit={isAdmin} />
+        <ListView tasks={visible} users={users} onOpen={openTask} onStatus={moveTask} canEdit={canEdit} />
       )}
 
       {isAdmin && (
@@ -151,7 +152,7 @@ export default function ProjectScreen() {
           }
         }
         lockProjectId={projectId}
-        readOnly={!isAdmin}
+        readOnly={!canEdit}
         submitLabel={editing ? "Save issue" : "Create issue"}
         onClose={closeTask}
         onSubmit={async (input) => {

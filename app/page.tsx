@@ -13,7 +13,7 @@ import {
 import { useGetAuthUserQuery, useGetProjectsQuery, useGetTasksQuery, useGetUsersQuery } from "@/state/api";
 import { PRIORITIES } from "@/lib/types";
 import { formatDate, getErrorMessage, isOverdue } from "@/lib/format";
-import { Avatar, Badge, DemoBanner, PageHeader, QueryError, cardClass } from "@/app/components/ui";
+import { Avatar, Badge, PageHeader, QueryError, cardClass } from "@/app/components/ui";
 
 export default function Home() {
   const { data: currentUser } = useGetAuthUserQuery({});
@@ -35,7 +35,6 @@ export default function Home() {
 
   return (
     <div>
-      <DemoBanner />
       <PageHeader
         eyebrow="NovaStack Studio"
         title={`Hello${currentUser?.userDetails?.username ? `, ${currentUser.userDetails.username.split(" ")[0]}` : ""}`}

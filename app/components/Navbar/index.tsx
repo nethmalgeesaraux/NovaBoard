@@ -75,7 +75,7 @@ const Navbar = () => {
           <span className="text-sm font-medium">{username}</span>
           {role && (
             <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-              {role === "admin" ? "Admin" : "View only"}
+              {role === "admin" ? "Admin" : role === "developer" ? "Developer" : "View only"}
             </span>
           )}
         </div>

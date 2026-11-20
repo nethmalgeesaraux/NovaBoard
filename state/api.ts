@@ -6,6 +6,7 @@ import {
   createUser,
   deleteProject,
   deleteTask,
+  deleteUser,
   getBackendStatus,
   getCurrentUser,
   getProject,
@@ -13,7 +14,6 @@ import {
   getTasks,
   getTeams,
   getUsers,
-  resetDemoData,
   signIn,
   signOut,
   updateTask,
@@ -167,6 +167,17 @@ export const api = createApi({
       },
       invalidatesTags: ["Users", "User"],
     }),
+    deleteUser: build.mutation<void, string>({
+      queryFn: async (id) => {
+        try {
+          await deleteUser(id);
+          return { data: undefined };
+        } catch (error) {
+          return failure(error);
+        }
+      },
+      invalidatesTags: ["Users", "User"],
+    }),
     getTeams: build.query<Team[], void>({
       queryFn: async () => {
         try {
@@ -210,12 +221,7 @@ export const api = createApi({
     }),
     resetDemoData: build.mutation<void, void>({
       queryFn: async () => {
-        try {
-          await resetDemoData();
-          return { data: undefined };
-        } catch (error) {
-          return failure(error);
-        }
+        return { data: undefined };
       },
       invalidatesTags: ["Projects", "Tasks", "Users", "Teams", "User", "Status"],
     }),
@@ -235,6 +241,7 @@ export const {
   useDeleteTaskMutation,
   useGetUsersQuery,
   useCreateUserMutation,
+  useDeleteUserMutation,
   useGetTeamsQuery,
   useCreateTeamMutation,
   useResetDemoDataMutation,

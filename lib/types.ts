@@ -16,7 +16,7 @@ export const PRIORITIES = [
 export type Status = (typeof STATUSES)[number];
 export type Priority = (typeof PRIORITIES)[number];
 
-export type Role = "admin" | "viewer";
+export type Role = "admin" | "developer" | "viewer";
 
 export type User = {
   id: string;
@@ -25,6 +25,7 @@ export type User = {
   profilePictureUrl: string;
   teamId: string;
   role: Role;
+  createdAt?: string;
 };
 
 export type Team = {
@@ -32,6 +33,7 @@ export type Team = {
   teamName: string;
   productOwnerUserId: string;
   projectManagerUserId: string;
+  createdAt?: string;
 };
 
 export type Project = {
@@ -40,6 +42,7 @@ export type Project = {
   description: string;
   startDate: string;
   endDate: string;
+  createdAt?: string;
 };
 
 export type Task = {
@@ -81,7 +84,9 @@ export type ProjectInput = {
 export type UserInput = {
   username: string;
   email: string;
-  teamId: string;
+  password?: string;
+  role?: Role;
+  teamId?: string;
 };
 
 export type TeamInput = {
@@ -111,7 +116,7 @@ export type TaskFilters = {
 };
 
 export type BackendStatus = {
-  mode: "demo" | "supabase";
+  mode: "supabase" | "unconfigured";
   configured: boolean;
   ok: boolean;
   message: string;

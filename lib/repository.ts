@@ -1,13 +1,13 @@
-import { createDemoDatabase } from "@/lib/demo-data";
+import { createClient } from "@supabase/supabase-js";
 import { nextIssueKey } from "@/lib/format";
 import { getSupabase, isSupabaseConfigured } from "@/lib/supabase";
 import type {
   AuthUser,
   BackendStatus,
-  Database,
   Priority,
   Project,
   ProjectInput,
+  Role,
   Status,
   Task,
   TaskFilters,
@@ -18,15 +18,15 @@ import type {
   UserInput,
 } from "@/lib/types";
 
-const STORAGE_KEY = "novaboard-demo-db";
-
 type UserRow = {
   id: string;
+  auth_user_id: string | null;
   username: string;
   email: string;
   profile_picture_url: string | null;
   team_id: string | null;
-  role: "admin" | "viewer" | null;
+  role: Role | null;
+  created_at?: string;
 };
 
 type TeamRow = {
@@ -34,6 +34,7 @@ type TeamRow = {
   team_name: string;
   product_owner_user_id: string | null;
   project_manager_user_id: string | null;
+  created_at?: string;
 };
 
 type ProjectRow = {
@@ -42,6 +43,7 @@ type ProjectRow = {
   description: string | null;
   start_date: string | null;
   end_date: string | null;
+  created_at?: string;
 };
 
 type TaskRow = {
@@ -61,17 +63,6 @@ type TaskRow = {
   created_at: string;
 };
 
-function emptyUser(): User {
-  return {
-    id: "",
-    username: "NovaStack",
-    email: "",
-    profilePictureUrl: "",
-    teamId: "",
-    role: "viewer",
-  };
-}
-
 function mapUser(row: UserRow): User {
   return {
     id: row.id,
@@ -79,7 +70,8 @@ function mapUser(row: UserRow): User {
     email: row.email,
     profilePictureUrl: row.profile_picture_url ?? "",
     teamId: row.team_id ?? "",
-    role: row.role === "admin" ? "admin" : "viewer",
+    role: row.role ?? (row.email.toLowerCase() === "studionovastack@gmail.com" ? "admin" : "developer"),
+    createdAt: row.created_at,
   };
 }
 
@@ -89,6 +81,7 @@ function mapTeam(row: TeamRow): Team {
     teamName: row.team_name,
     productOwnerUserId: row.product_owner_user_id ?? "",
     projectManagerUserId: row.project_manager_user_id ?? "",
+    createdAt: row.created_at,
   };
 }
 
@@ -99,6 +92,7 @@ function mapProject(row: ProjectRow): Project {
     description: row.description ?? "",
     startDate: row.start_date ?? "",
     endDate: row.end_date ?? "",
+    createdAt: row.created_at,
   };
 }
 
@@ -121,32 +115,6 @@ function mapTask(row: TaskRow): Task {
   };
 }
 
-function loadLocal(): Database {
-  if (typeof window === "undefined") return createDemoDatabase();
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) {
-      const seeded = createDemoDatabase();
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(seeded));
-      return seeded;
-    }
-    const parsed = JSON.parse(raw) as Database;
-    if (!parsed.users || !parsed.teams || !parsed.projects || !parsed.tasks) {
-      throw new Error("Invalid demo cache");
-    }
-    return parsed;
-  } catch {
-    const seeded = createDemoDatabase();
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(seeded));
-    return seeded;
-  }
-}
-
-function saveLocal(db: Database) {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
-}
-
 function matchesSearch(task: Task, search?: string) {
   if (!search?.trim()) return true;
   const query = search.trim().toLowerCase();
@@ -165,18 +133,19 @@ function filterTasks(tasks: Task[], filters: TaskFilters = {}) {
 
 function requireClient() {
   const supabase = getSupabase();
-  if (!supabase) throw new Error("Supabase is not configured");
+  if (!supabase) {
+    throw new Error("Supabase is not configured. Please check your .env.local keys.");
+  }
   return supabase;
 }
 
 export async function getBackendStatus(): Promise<BackendStatus> {
   if (!isSupabaseConfigured()) {
     return {
-      mode: "demo",
+      mode: "unconfigured",
       configured: false,
-      ok: true,
-      message:
-        "Supabase is not configured. NovaBoard is using demo data saved in this browser.",
+      ok: false,
+      message: "Supabase keys missing. Add NEXT_PUBLIC_SUPABASE_URL and key to .env.local.",
     };
   }
 
@@ -187,7 +156,7 @@ export async function getBackendStatus(): Promise<BackendStatus> {
       mode: "supabase",
       configured: true,
       ok: false,
-      message: error.message,
+      message: `Database tables not found (${error.message}). Please run supabase/schema.sql in your Supabase SQL editor.`,
     };
   }
 
@@ -195,15 +164,14 @@ export async function getBackendStatus(): Promise<BackendStatus> {
     mode: "supabase",
     configured: true,
     ok: true,
-    message: "Connected to Supabase.",
+    message: "Connected to Supabase live database.",
   };
 }
 
 export async function getCurrentUser(): Promise<AuthUser> {
   const supabase = getSupabase();
   if (!supabase) {
-    const user = loadLocal().users[0] ?? emptyUser();
-    return { signedIn: true, userDetails: { ...user, role: "admin" } };
+    return { signedIn: false, userDetails: null };
   }
 
   const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
@@ -211,25 +179,94 @@ export async function getCurrentUser(): Promise<AuthUser> {
   const session = sessionData.session;
   if (!session) return { signedIn: false, userDetails: null };
 
-  const { data, error } = await supabase
+  const email = (session.user.email ?? "").toLowerCase().trim();
+  const isAdminEmail = email === "studionovastack@gmail.com";
+
+  // Look for user row by auth_user_id or email
+  let { data, error } = await supabase
     .from("users")
     .select("*")
-    .eq("auth_user_id", session.user.id)
+    .or(`auth_user_id.eq.${session.user.id},email.eq.${email}`)
     .maybeSingle();
-  if (error) throw new Error(error.message);
+
+  if (error) {
+    // If table doesn't exist yet or query failed
+    console.error("Error fetching user profile:", error.message);
+  }
+
+  // If user profile is not in public.users yet, create or sync it
+  if (!data) {
+    const defaultUsername =
+      session.user.user_metadata?.username ||
+      (isAdminEmail ? "Studio NovaStack (Admin)" : email.split("@")[0]);
+    const defaultRole: Role = isAdminEmail
+      ? "admin"
+      : (session.user.user_metadata?.role as Role) || "developer";
+
+    const { data: created, error: insertError } = await supabase
+      .from("users")
+      .insert({
+        auth_user_id: session.user.id,
+        email,
+        username: defaultUsername,
+        role: defaultRole,
+      })
+      .select("*")
+      .single();
+
+    if (!insertError && created) {
+      data = created;
+    }
+  } else if (!data.auth_user_id || (isAdminEmail && data.role !== "admin")) {
+    const { data: updated } = await supabase
+      .from("users")
+      .update({
+        auth_user_id: session.user.id,
+        role: isAdminEmail ? "admin" : data.role,
+      })
+      .eq("id", data.id)
+      .select("*")
+      .single();
+
+    if (updated) data = updated;
+  }
+
   return {
     signedIn: true,
-    userDetails: data ? mapUser(data as UserRow) : null,
+    userDetails: data
+      ? mapUser(data as UserRow)
+      : {
+          id: session.user.id,
+          username: isAdminEmail ? "Studio NovaStack (Admin)" : email.split("@")[0],
+          email,
+          profilePictureUrl: "",
+          teamId: "",
+          role: isAdminEmail ? "admin" : "developer",
+        },
   };
 }
 
 export async function signIn(email: string, password: string): Promise<AuthUser> {
   const supabase = requireClient();
+  const cleanEmail = email.trim().toLowerCase();
+
   const { error } = await supabase.auth.signInWithPassword({
-    email: email.trim(),
+    email: cleanEmail,
     password,
   });
-  if (error) throw new Error(error.message);
+
+  if (error) {
+    if (error.message.includes("Email not confirmed")) {
+      throw new Error(
+        "Email not confirmed yet. Run supabase/schema.sql in Supabase SQL editor to auto-confirm all user accounts.",
+      );
+    }
+    if (error.message.includes("Invalid login credentials")) {
+      throw new Error("Invalid email or password. Please verify your credentials.");
+    }
+    throw new Error(error.message);
+  }
+
   return getCurrentUser();
 }
 
@@ -241,67 +278,95 @@ export async function signOut(): Promise<void> {
 }
 
 export async function getUsers(): Promise<User[]> {
-  const supabase = getSupabase();
-  if (!supabase) return loadLocal().users;
-  const { data, error } = await supabase.from("users").select("*").order("username");
+  const supabase = requireClient();
+  const { data, error } = await supabase.from("users").select("*").order("created_at", { ascending: false });
   if (error) throw new Error(error.message);
   return (data as UserRow[]).map(mapUser);
 }
 
 export async function createUser(input: UserInput): Promise<User> {
-  const supabase = getSupabase();
-  if (!supabase) {
-    const db = loadLocal();
-    const user: User = {
-      id: crypto.randomUUID(),
-      username: input.username.trim(),
-      email: input.email.trim(),
-      profilePictureUrl: "",
-      teamId: input.teamId,
-      role: "viewer",
-    };
-    db.users.push(user);
-    saveLocal(db);
-    return user;
+  const supabase = requireClient();
+  const email = input.email.trim().toLowerCase();
+  const username = input.username.trim();
+  const role: Role = input.role || (email === "studionovastack@gmail.com" ? "admin" : "developer");
+  const teamId = input.teamId ? input.teamId : null;
+
+  let authUserId: string | null = null;
+
+  // If password was provided by admin, create their Supabase Auth login account
+  if (input.password && input.password.trim().length >= 6) {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+    const key =
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
+      "";
+
+    // Use a detached client so the currently logged-in Admin session is not overwritten
+    const isolatedClient = createClient(url, key, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+        detectSessionInUrl: false,
+      },
+    });
+
+    const { data: authData, error: authError } = await isolatedClient.auth.signUp({
+      email,
+      password: input.password.trim(),
+      options: {
+        data: {
+          username,
+          role,
+        },
+      },
+    });
+
+    if (authError) {
+      // If user already exists in auth, allow linking to public.users
+      if (!authError.message.includes("already registered")) {
+        throw new Error(`Authentication setup failed: ${authError.message}`);
+      }
+    }
+
+    if (authData?.user) {
+      authUserId = authData.user.id;
+    }
   }
 
   const { data, error } = await supabase
     .from("users")
-    .insert({
-      username: input.username.trim(),
-      email: input.email.trim(),
-      team_id: input.teamId || null,
-      role: "viewer",
-    })
+    .upsert(
+      {
+        auth_user_id: authUserId,
+        username,
+        email,
+        team_id: teamId,
+        role,
+      },
+      { onConflict: "email" },
+    )
     .select("*")
     .single();
+
   if (error) throw new Error(error.message);
   return mapUser(data as UserRow);
 }
 
+export async function deleteUser(id: string): Promise<void> {
+  const supabase = requireClient();
+  const { error } = await supabase.from("users").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
 export async function getTeams(): Promise<Team[]> {
-  const supabase = getSupabase();
-  if (!supabase) return loadLocal().teams;
+  const supabase = requireClient();
   const { data, error } = await supabase.from("teams").select("*").order("team_name");
   if (error) throw new Error(error.message);
   return (data as TeamRow[]).map(mapTeam);
 }
 
 export async function createTeam(input: TeamInput): Promise<Team> {
-  const supabase = getSupabase();
-  if (!supabase) {
-    const db = loadLocal();
-    const team: Team = {
-      id: crypto.randomUUID(),
-      teamName: input.teamName.trim(),
-      productOwnerUserId: input.productOwnerUserId,
-      projectManagerUserId: input.projectManagerUserId,
-    };
-    db.teams.push(team);
-    saveLocal(db);
-    return team;
-  }
-
+  const supabase = requireClient();
   const { data, error } = await supabase
     .from("teams")
     .insert({
@@ -311,39 +376,32 @@ export async function createTeam(input: TeamInput): Promise<Team> {
     })
     .select("*")
     .single();
+
   if (error) throw new Error(error.message);
   return mapTeam(data as TeamRow);
 }
 
 export async function getProjects(): Promise<Project[]> {
-  const supabase = getSupabase();
-  if (!supabase) return loadLocal().projects;
-  const { data, error } = await supabase.from("projects").select("*").order("name");
+  const supabase = requireClient();
+  const { data, error } = await supabase.from("projects").select("*").order("created_at", { ascending: false });
   if (error) throw new Error(error.message);
   return (data as ProjectRow[]).map(mapProject);
 }
 
 export async function getProject(id: string): Promise<Project | null> {
-  const projects = await getProjects();
-  return projects.find((project) => project.id === id) ?? null;
+  const supabase = requireClient();
+  const { data, error } = await supabase
+    .from("projects")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+  return data ? mapProject(data as ProjectRow) : null;
 }
 
 export async function createProject(input: ProjectInput): Promise<Project> {
-  const supabase = getSupabase();
-  if (!supabase) {
-    const db = loadLocal();
-    const project: Project = {
-      id: crypto.randomUUID(),
-      name: input.name.trim(),
-      description: input.description.trim(),
-      startDate: input.startDate,
-      endDate: input.endDate,
-    };
-    db.projects.push(project);
-    saveLocal(db);
-    return project;
-  }
-
+  const supabase = requireClient();
   const { data, error } = await supabase
     .from("projects")
     .insert({
@@ -354,68 +412,40 @@ export async function createProject(input: ProjectInput): Promise<Project> {
     })
     .select("*")
     .single();
+
   if (error) throw new Error(error.message);
   return mapProject(data as ProjectRow);
 }
 
 export async function deleteProject(id: string): Promise<void> {
-  const supabase = getSupabase();
-  if (!supabase) {
-    const db = loadLocal();
-    db.projects = db.projects.filter((project) => project.id !== id);
-    db.tasks = db.tasks.filter((task) => task.projectId !== id);
-    saveLocal(db);
-    return;
-  }
-
+  const supabase = requireClient();
   const { error } = await supabase.from("projects").delete().eq("id", id);
   if (error) throw new Error(error.message);
 }
 
 export async function getTasks(filters: TaskFilters = {}): Promise<Task[]> {
-  const supabase = getSupabase();
-  if (!supabase) return filterTasks(loadLocal().tasks, filters);
-
+  const supabase = requireClient();
   let query = supabase.from("tasks").select("*").order("created_at", { ascending: false });
+
   if (filters.projectId) query = query.eq("project_id", filters.projectId);
   if (filters.priority) query = query.eq("priority", filters.priority);
+
   const { data, error } = await query;
   if (error) throw new Error(error.message);
   return filterTasks((data as TaskRow[]).map(mapTask), { search: filters.search });
 }
 
 export async function createTask(input: TaskInput): Promise<Task> {
-  const supabase = getSupabase();
-  if (!supabase) {
-    const db = loadLocal();
-    const project = db.projects.find((item) => item.id === input.projectId);
-    const task: Task = {
-      id: crypto.randomUUID(),
-      issueKey: nextIssueKey(project?.name ?? "Task", db.tasks, input.projectId),
-      title: input.title.trim(),
-      description: input.description.trim(),
-      status: input.status,
-      priority: input.priority,
-      tags: input.tags.trim(),
-      startDate: input.startDate,
-      dueDate: input.dueDate,
-      points: input.points,
-      projectId: input.projectId,
-      authorUserId: input.authorUserId,
-      assignedUserId: input.assignedUserId,
-      createdAt: new Date().toISOString(),
-    };
-    db.tasks.unshift(task);
-    saveLocal(db);
-    return task;
-  }
-
+  const supabase = requireClient();
   const existing = await getTasks({ projectId: input.projectId });
   const project = await getProject(input.projectId);
+
+  const issueKey = nextIssueKey(project?.name ?? "Task", existing, input.projectId);
+
   const { data, error } = await supabase
     .from("tasks")
     .insert({
-      issue_key: nextIssueKey(project?.name ?? "Task", existing, input.projectId),
+      issue_key: issueKey,
       title: input.title.trim(),
       description: input.description.trim(),
       status: input.status,
@@ -423,13 +453,14 @@ export async function createTask(input: TaskInput): Promise<Task> {
       tags: input.tags.trim(),
       start_date: input.startDate || null,
       due_date: input.dueDate || null,
-      points: input.points,
+      points: input.points ?? 0,
       project_id: input.projectId,
       author_user_id: input.authorUserId || null,
       assigned_user_id: input.assignedUserId || null,
     })
     .select("*")
     .single();
+
   if (error) throw new Error(error.message);
   return mapTask(data as TaskRow);
 }
@@ -438,30 +469,9 @@ export async function updateTask(
   id: string,
   patch: Partial<TaskInput> & { status?: Status; priority?: Priority },
 ): Promise<Task> {
-  const supabase = getSupabase();
-  if (!supabase) {
-    const db = loadLocal();
-    const index = db.tasks.findIndex((task) => task.id === id);
-    if (index < 0) throw new Error("Issue not found");
-    const current = db.tasks[index];
-    const next: Task = {
-      ...current,
-      title: patch.title?.trim() ?? current.title,
-      description: patch.description?.trim() ?? current.description,
-      status: patch.status ?? current.status,
-      priority: patch.priority ?? current.priority,
-      tags: patch.tags?.trim() ?? current.tags,
-      startDate: patch.startDate ?? current.startDate,
-      dueDate: patch.dueDate ?? current.dueDate,
-      points: patch.points === undefined ? current.points : patch.points,
-      assignedUserId: patch.assignedUserId ?? current.assignedUserId,
-    };
-    db.tasks[index] = next;
-    saveLocal(db);
-    return next;
-  }
-
+  const supabase = requireClient();
   const row: Record<string, string | number | null> = {};
+
   if (patch.title !== undefined) row.title = patch.title.trim();
   if (patch.description !== undefined) row.description = patch.description.trim();
   if (patch.status !== undefined) row.status = patch.status;
@@ -480,28 +490,13 @@ export async function updateTask(
     .eq("id", id)
     .select("*")
     .single();
+
   if (error) throw new Error(error.message);
   return mapTask(data as TaskRow);
 }
 
 export async function deleteTask(id: string): Promise<void> {
-  const supabase = getSupabase();
-  if (!supabase) {
-    const db = loadLocal();
-    db.tasks = db.tasks.filter((task) => task.id !== id);
-    saveLocal(db);
-    return;
-  }
-
+  const supabase = requireClient();
   const { error } = await supabase.from("tasks").delete().eq("id", id);
   if (error) throw new Error(error.message);
-}
-
-export async function resetDemoData(): Promise<void> {
-  if (isSupabaseConfigured()) {
-    throw new Error("Demo reset is only available before Supabase is connected.");
-  }
-  if (typeof window === "undefined") return;
-  window.localStorage.removeItem(STORAGE_KEY);
-  saveLocal(createDemoDatabase());
 }
