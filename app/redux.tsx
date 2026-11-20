@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { combineReducers, configureStore } from "@reduxjs/toolkit";
 import {
   type TypedUseSelectorHook,
@@ -89,19 +89,28 @@ export default function StoreProvider({
   children: React.ReactNode;
 }) {
   const storeRef = useRef<AppStore | null>(null);
-  const persistorRef = useRef<Persistor | null>(null);
+  const [persistor, setPersistor] = useState<Persistor | null>(null);
 
   if (!storeRef.current) {
     storeRef.current = makeStore();
-    persistorRef.current = persistStore(storeRef.current);
     setupListeners(storeRef.current.dispatch);
   }
 
+  useEffect(() => {
+    if (storeRef.current) {
+      setPersistor(persistStore(storeRef.current));
+    }
+  }, []);
+
   return (
     <Provider store={storeRef.current}>
-      <PersistGate loading={null} persistor={persistorRef.current as Persistor}>
+      {persistor ? (
+        <PersistGate loading={null} persistor={persistor}>
+          <ThemeSync>{children}</ThemeSync>
+        </PersistGate>
+      ) : (
         <ThemeSync>{children}</ThemeSync>
-      </PersistGate>
+      )}
     </Provider>
   );
 }

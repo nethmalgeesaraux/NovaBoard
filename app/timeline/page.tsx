@@ -32,7 +32,8 @@ export default function TimelinePage() {
     })
     .filter((item): item is { task: Task; start: number; end: number } => item !== null);
 
-  const min = ranged.length ? Math.min(...ranged.map((item) => item.start)) : Date.now();
+  const fallbackTime = 1735689600000; // Jan 1 2025
+  const min = ranged.length ? Math.min(...ranged.map((item) => item.start)) : fallbackTime;
   const max = ranged.length ? Math.max(...ranged.map((item) => item.end)) : min + 1;
   const span = Math.max(max - min, 1);
 

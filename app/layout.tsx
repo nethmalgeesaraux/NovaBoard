@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { Suspense } from "react";
 import "./globals.css";
 import DashboardWrapper from "./DashboardWrapper";
 import StoreProvider from "./redux";
@@ -27,7 +28,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="min-h-full flex flex-col">
         <StoreProvider>
-          <DashboardWrapper>{children}</DashboardWrapper>
+          <Suspense fallback={null}>
+            <DashboardWrapper>{children}</DashboardWrapper>
+          </Suspense>
         </StoreProvider>
       </body>
     </html>

@@ -95,11 +95,11 @@ export const api = createApi({
       },
       invalidatesTags: ["Projects"],
     }),
-    deleteProject: build.mutation<void, string>({
+    deleteProject: build.mutation<null, string>({
       queryFn: async (id) => {
         try {
           await deleteProject(id);
-          return { data: undefined };
+          return { data: null };
         } catch (error) {
           return failure(error);
         }
@@ -136,11 +136,11 @@ export const api = createApi({
       },
       invalidatesTags: ["Tasks"],
     }),
-    deleteTask: build.mutation<void, string>({
+    deleteTask: build.mutation<null, string>({
       queryFn: async (id) => {
         try {
           await deleteTask(id);
-          return { data: undefined };
+          return { data: null };
         } catch (error) {
           return failure(error);
         }
@@ -167,11 +167,11 @@ export const api = createApi({
       },
       invalidatesTags: ["Users", "User"],
     }),
-    deleteUser: build.mutation<void, string>({
+    deleteUser: build.mutation<null, string>({
       queryFn: async (id) => {
         try {
           await deleteUser(id);
-          return { data: undefined };
+          return { data: null };
         } catch (error) {
           return failure(error);
         }
@@ -208,20 +208,20 @@ export const api = createApi({
       },
       invalidatesTags: ["User", "Projects", "Tasks", "Users", "Teams", "Status"],
     }),
-    signOut: build.mutation<void, void>({
+    signOut: build.mutation<null, void>({
       queryFn: async () => {
         try {
           await signOut();
-          return { data: undefined };
+          return { data: null };
         } catch (error) {
           return failure(error);
         }
       },
       invalidatesTags: ["User", "Projects", "Tasks", "Users", "Teams", "Status"],
     }),
-    resetDemoData: build.mutation<void, void>({
+    resetDemoData: build.mutation<null, void>({
       queryFn: async () => {
-        return { data: undefined };
+        return { data: null };
       },
       invalidatesTags: ["Projects", "Tasks", "Users", "Teams", "User", "Status"],
     }),

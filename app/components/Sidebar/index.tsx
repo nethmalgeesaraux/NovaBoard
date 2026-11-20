@@ -11,7 +11,6 @@ import {
   Briefcase,
   ChevronDown,
   ChevronUp,
-  Globe,
   Home,
   Layers3,
   ListTodo,
@@ -96,7 +95,6 @@ const Sidebar = () => {
           <SidebarLink icon={Search} label="Search" href="/search" />
           <SidebarLink icon={User} label="Users" href="/users" />
           <SidebarLink icon={Users} label="Teams" href="/teams" />
-          <SidebarLink icon={Globe} label="Landing Page" href="/landing" />
           <SidebarLink icon={Settings} label="Settings" href="/settings" />
         </nav>
 
