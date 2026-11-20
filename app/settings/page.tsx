@@ -5,6 +5,7 @@ import { setIsDarkMode } from "@/state";
 import { useGetAuthUserQuery, useGetBackendStatusQuery, useSignOutMutation } from "@/state/api";
 import { getErrorMessage } from "@/lib/format";
 import { PageHeader, QueryError, cardClass, secondaryButton, dangerButton } from "@/app/components/ui";
+import { useIsAdmin } from "@/app/use-admin";
 import { CheckCircle2, Database, ExternalLink, Moon, Shield, Sun, User } from "lucide-react";
 
 export default function SettingsPage() {
@@ -13,6 +14,7 @@ export default function SettingsPage() {
   const { data: status, isError, error, refetch } = useGetBackendStatusQuery();
   const { data: currentUser } = useGetAuthUserQuery({});
   const [signOut, { isLoading: signingOut }] = useSignOutMutation();
+  const isAdmin = useIsAdmin();
 
   const user = currentUser?.userDetails;
 
@@ -21,11 +23,11 @@ export default function SettingsPage() {
       <PageHeader
         eyebrow="Workspace"
         title="Settings"
-        subtitle="Manage appearance, view database connectivity, and review your NovaStack Studio profile."
+        subtitle="Manage appearance and review your NovaStack Studio account profile."
       />
       <QueryError message={isError ? getErrorMessage(error) : undefined} />
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className={`grid gap-6 ${isAdmin ? "lg:grid-cols-2" : "max-w-xl"}`}>
         {/* User Profile Card */}
         <section className={`${cardClass} p-5 space-y-4`}>
           <div className="flex items-center gap-2">
@@ -61,47 +63,49 @@ export default function SettingsPage() {
           </button>
         </section>
 
-        {/* Database Connectivity */}
-        <section className={`${cardClass} p-5 space-y-4`}>
-          <div className="flex items-center gap-2">
-            <Database className="h-5 w-5 text-nova-600" />
-            <h2 className="font-semibold text-base">Supabase Database</h2>
-          </div>
-
-          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs dark:border-slate-800 dark:bg-slate-800/60 space-y-2">
-            <div className="flex justify-between items-center">
-              <span className="text-slate-500">Backend</span>
-              <span className="font-semibold">Live Supabase PostgreSQL</span>
+        {/* Database Connectivity - EXCLUSIVELY VISIBLE TO ADMIN */}
+        {isAdmin && (
+          <section className={`${cardClass} p-5 space-y-4`}>
+            <div className="flex items-center gap-2">
+              <Database className="h-5 w-5 text-nova-600" />
+              <h2 className="font-semibold text-base">Supabase Database (Admin Only)</h2>
             </div>
-            <div className="flex justify-between items-center">
-              <span className="text-slate-500">Status</span>
-              <span
-                className={`font-semibold inline-flex items-center gap-1 ${
-                  status?.ok ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600"
-                }`}
+
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs dark:border-slate-800 dark:bg-slate-800/60 space-y-2">
+              <div className="flex justify-between items-center">
+                <span className="text-slate-500">Backend</span>
+                <span className="font-semibold">Live Supabase PostgreSQL</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-500">Status</span>
+                <span
+                  className={`font-semibold inline-flex items-center gap-1 ${
+                    status?.ok ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600"
+                  }`}
+                >
+                  {status?.ok && <CheckCircle2 className="h-3.5 w-3.5" />}
+                  {status?.ok ? "Connected & Synchronized" : "Tables Missing / Attention Required"}
+                </span>
+              </div>
+              <p className="pt-1 text-[11px] text-slate-500 leading-relaxed">{status?.message}</p>
+            </div>
+
+            <div className="flex flex-wrap gap-2 pt-1">
+              <button className={secondaryButton} type="button" onClick={() => refetch()}>
+                Check Connection
+              </button>
+              <a
+                href="https://supabase.com/dashboard/project/mnucdpuwmzszpfmhjdcn"
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`${secondaryButton} inline-flex items-center gap-1.5`}
               >
-                {status?.ok && <CheckCircle2 className="h-3.5 w-3.5" />}
-                {status?.ok ? "Connected & Synchronized" : "Tables Missing / Attention Required"}
-              </span>
+                <span>Open Supabase Dashboard</span>
+                <ExternalLink className="h-3.5 w-3.5" />
+              </a>
             </div>
-            <p className="pt-1 text-[11px] text-slate-500 leading-relaxed">{status?.message}</p>
-          </div>
-
-          <div className="flex flex-wrap gap-2 pt-1">
-            <button className={secondaryButton} type="button" onClick={() => refetch()}>
-              Check Connection
-            </button>
-            <a
-              href="https://supabase.com/dashboard/project/mnucdpuwmzszpfmhjdcn"
-              target="_blank"
-              rel="noopener noreferrer"
-              className={`${secondaryButton} inline-flex items-center gap-1.5`}
-            >
-              <span>Open Supabase Dashboard</span>
-              <ExternalLink className="h-3.5 w-3.5" />
-            </a>
-          </div>
-        </section>
+          </section>
+        )}
 
         {/* Appearance Card */}
         <section className={`${cardClass} p-5 space-y-3`}>

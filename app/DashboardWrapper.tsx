@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { usePathname } from "next/navigation";
 import Navbar from "./components/Navbar";
 import Sidebar from "./components/Sidebar";
 import LoginScreen from "./components/LoginScreen";
@@ -8,10 +9,12 @@ import { useAppDispatch, useAppSelector } from "@/app/redux";
 import { setIsSidebarCollapsed } from "@/state";
 import { useGetAuthUserQuery, useGetBackendStatusQuery } from "@/state/api";
 import { isSupabaseConfigured } from "@/lib/supabase";
+import { SCHEMA_SQL } from "@/lib/schema-sql";
 import { Check, Copy, Database, ExternalLink, RefreshCw } from "lucide-react";
 
 const DashboardWrapper = ({ children }: { children: React.ReactNode }) => {
   const dispatch = useAppDispatch();
+  const pathname = usePathname();
   const isSidebarCollapsed = useAppSelector(
     (state) => state.global.isSidebarCollapsed,
   );
@@ -29,14 +32,9 @@ const DashboardWrapper = ({ children }: { children: React.ReactNode }) => {
 
   const handleCopySQL = async () => {
     try {
-      const res = await fetch("/api/schema-sql");
-      if (res.ok) {
-        const sql = await res.text();
-        await navigator.clipboard.writeText(sql);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2500);
-        return;
-      }
+      await navigator.clipboard.writeText(SCHEMA_SQL);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
     } catch {
       // fallback
     }
@@ -51,7 +49,12 @@ const DashboardWrapper = ({ children }: { children: React.ReactNode }) => {
     );
   }
 
-  // If Supabase is connected but tables haven't been created yet
+  // If on /landing or not signed in, show the Landing Page & Login Portal
+  if (pathname === "/landing" || (configured && auth && !auth.signedIn)) {
+    return <LoginScreen />;
+  }
+
+  // If signed in, but database tables haven't been created yet
   if (configured && status && !status.ok) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-8 dark:bg-slate-dark-950">
@@ -83,10 +86,10 @@ const DashboardWrapper = ({ children }: { children: React.ReactNode }) => {
             </p>
             <ol className="list-decimal list-inside space-y-2 pl-1 leading-relaxed">
               <li>
-                Open the file <strong className="font-mono text-nova-600">supabase/schema.sql</strong> in your project.
+                Click <strong>Copy SQL Code</strong> below.
               </li>
               <li>
-                Go to your{" "}
+                Open{" "}
                 <a
                   href="https://supabase.com/dashboard/project/mnucdpuwmzszpfmhjdcn/sql/new"
                   target="_blank"
@@ -99,17 +102,26 @@ const DashboardWrapper = ({ children }: { children: React.ReactNode }) => {
                 , paste the SQL script, and click <strong>Run</strong>.
               </li>
               <li>
-                Click the <strong>Check Connection</strong> button below once executed!
+                Click <strong>Check Connection</strong> below once executed!
               </li>
             </ol>
           </div>
 
           <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-slate-100 dark:border-slate-800">
+            <button
+              type="button"
+              onClick={handleCopySQL}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-nova-600 px-4 py-2 text-xs font-semibold text-white hover:bg-nova-700 transition"
+            >
+              {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+              <span>{copied ? "Copied SQL Code!" : "Copy SQL Code"}</span>
+            </button>
+
             <a
               href="https://supabase.com/dashboard/project/mnucdpuwmzszpfmhjdcn/sql/new"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 rounded-xl bg-nova-600 px-4 py-2 text-xs font-semibold text-white hover:bg-nova-700 transition"
+              className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 transition"
             >
               <span>Open Supabase SQL Editor</span>
               <ExternalLink className="h-3.5 w-3.5" />
@@ -128,10 +140,6 @@ const DashboardWrapper = ({ children }: { children: React.ReactNode }) => {
         </div>
       </div>
     );
-  }
-
-  if (configured && auth && !auth.signedIn) {
-    return <LoginScreen />;
   }
 
   return (
